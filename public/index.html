@@ -15,6 +15,30 @@
 </head>
 <body>
 
+<!-- Toast notifications -->
+<div id="toast-container" class="toast-container"></div>
+
+<!-- Alert modal -->
+<div id="alert-modal" class="alert-modal" style="display:none">
+  <div class="alert-modal-box">
+    <div class="alert-modal-title">Set Alerts for <span id="alert-modal-ticker"></span></div>
+    <div class="alert-modal-field">
+      <label>Stop-Loss (%)</label>
+      <input type="number" id="alert-stop-loss" placeholder="e.g. 10" step="any" min="0">
+      <span class="alert-modal-hint">Alert if position drops by this %</span>
+    </div>
+    <div class="alert-modal-field">
+      <label>Take-Profit (%)</label>
+      <input type="number" id="alert-take-profit" placeholder="e.g. 25" step="any" min="0">
+      <span class="alert-modal-hint">Alert if position gains this %</span>
+    </div>
+    <div class="alert-modal-actions">
+      <button class="form-cancel" id="alert-modal-cancel">Cancel</button>
+      <button class="form-save" id="alert-modal-save">Save Alerts</button>
+    </div>
+  </div>
+</div>
+
 <!-- Sidebar overlay -->
 <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
@@ -31,13 +55,13 @@
 <div class="view" id="council-view">
   <div class="hdr">
     <div class="hdr-top">
-      <button class="hamburger" id="hamburger">☰</button>
-      <div class="logo">🏛️</div>
+      <button class="hamburger" id="hamburger">&#9776;</button>
+      <div class="logo">&#127963;</div>
       <div style="flex:1"><div class="ttl">Investment Council</div><div class="sub">10 AI minds + financial data</div></div>
       <button class="cbtn" id="cb" style="display:none">Clear</button>
     </div>
     <div class="chips-row">
-      <button class="all-btn" id="all-toggle">⚡ All</button>
+      <button class="all-btn" id="all-toggle">&#9889; All</button>
       <div id="advisor-chips" style="display:contents"></div>
     </div>
   </div>
@@ -46,9 +70,9 @@
     <div class="ir">
       <div class="mbg" id="mbg"></div>
       <input type="text" id="inp" placeholder="Ask the council..." autocomplete="off">
-      <button class="snd" id="snd" disabled>↑</button>
+      <button class="snd" id="snd" disabled>&#8593;</button>
     </div>
-    <div class="disc">Powered by Claude · Not financial advice</div>
+    <div class="disc">Powered by Claude &middot; Not financial advice</div>
   </div>
 </div>
 
@@ -56,8 +80,8 @@
 <div class="view" id="portfolio-view" style="display:none">
   <div class="hdr">
     <div class="hdr-top">
-      <button class="hamburger" onclick="document.getElementById('hamburger').click()">☰</button>
-      <div class="logo" style="background:linear-gradient(135deg,#8B7A2A,#C4A44A)">💼</div>
+      <button class="hamburger" onclick="document.getElementById('hamburger').click()">&#9776;</button>
+      <div class="logo" style="background:linear-gradient(135deg,#8B7A2A,#C4A44A)">&#128188;</div>
       <div style="flex:1"><div class="ttl">Portfolio</div><div class="sub">Track & analyze your positions</div></div>
     </div>
   </div>
@@ -69,7 +93,10 @@
     <div class="add-form-row">
       <input type="text" id="pos-ticker" placeholder="Ticker (e.g. AAPL)" autocapitalize="characters">
       <input type="number" id="pos-shares" placeholder="Shares" step="any">
-      <input type="number" id="pos-cost" placeholder="Avg Cost $" step="any">
+      <input type="number" id="pos-cost" placeholder="Price $" step="any">
+    </div>
+    <div class="add-form-row">
+      <input type="date" id="pos-date" placeholder="Purchase date">
     </div>
     <div class="add-form-actions">
       <button class="form-cancel" id="add-form-cancel">Cancel</button>
@@ -80,8 +107,8 @@
 
 <!-- Bottom Navigation -->
 <div class="bottom-nav">
-  <button class="nav-btn nav-active" id="nav-council"><span class="nav-icon">🏛️</span>Council</button>
-  <button class="nav-btn" id="nav-portfolio"><span class="nav-icon">💼</span>Portfolio</button>
+  <button class="nav-btn nav-active" id="nav-council"><span class="nav-icon">&#127963;</span>Council</button>
+  <button class="nav-btn" id="nav-portfolio"><span class="nav-icon">&#128188;</span>Portfolio</button>
 </div>
 
 <script type="module" src="/js/app.js"></script>

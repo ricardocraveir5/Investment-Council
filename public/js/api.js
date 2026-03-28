@@ -16,10 +16,6 @@ export async function askAdvisors({ question, advisors, ticker, conversationHist
   return r.json();
 }
 
-/**
- * Stream advisor responses via SSE.
- * Returns an AbortController so the caller can cancel.
- */
 export function streamAdvisors({ question, advisors, ticker, conversationHistory, onStart, onDelta, onDone, onError, onFinancial, onComplete }) {
   const controller = new AbortController();
   const body = { question, advisors, conversationHistory };
@@ -51,7 +47,7 @@ export function streamAdvisors({ question, advisors, ticker, conversationHistory
         buffer += decoder.decode(value, { stream: true });
 
         const parts = buffer.split("\n\n");
-        buffer = parts.pop(); // keep incomplete chunk
+        buffer = parts.pop();
 
         for (const part of parts) {
           if (!part.trim()) continue;
@@ -78,7 +74,6 @@ export function streamAdvisors({ question, advisors, ticker, conversationHistory
         }
       }
 
-      // Process any remaining buffer
       if (buffer.trim()) {
         const lines = buffer.split("\n");
         let eventType = "";
@@ -104,6 +99,11 @@ export function streamAdvisors({ question, advisors, ticker, conversationHistory
   })();
 
   return controller;
+}
+
+export async function fetchQuotes(tickers) {
+  const r = await fetch("/api/quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tickers }) });
+  return r.json();
 }
 
 export async function fetchPrices(tickers) {

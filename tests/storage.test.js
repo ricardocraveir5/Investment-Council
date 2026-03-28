@@ -22,15 +22,23 @@ const {
   setSelectedAdvisors,
   getPortfolio,
   savePortfolio,
+  updatePrices,
+  setAlert,
+  getAlerts,
+  dismissAlert,
+  getDismissedAlerts,
+  addTransaction,
 } = await import('../public/js/storage.js');
 
+function resetStore() {
+  localStorageMock.clear();
+  localStorageMock.getItem.mockImplementation((key) => store[key] || null);
+  localStorageMock.setItem.mockImplementation((key, value) => { store[key] = value; });
+  localStorageMock.removeItem.mockImplementation((key) => { delete store[key]; });
+}
+
 describe('Conversation storage', () => {
-  beforeEach(() => {
-    localStorageMock.clear();
-    localStorageMock.getItem.mockImplementation((key) => store[key] || null);
-    localStorageMock.setItem.mockImplementation((key, value) => { store[key] = value; });
-    localStorageMock.removeItem.mockImplementation((key) => { delete store[key]; });
-  });
+  beforeEach(resetStore);
 
   it('newConversation creates a conversation with id', () => {
     const conv = newConversation();
@@ -48,11 +56,18 @@ describe('Conversation storage', () => {
     expect(retrieved.messages).toHaveLength(1);
   });
 
-  it('saveConversation auto-generates title from first user message', () => {
+  it('saveConversation auto-generates title from role/content format', () => {
     const conv = { id: 'test-2', messages: [{ role: 'user', content: 'What is the best stock to buy?' }] };
     saveConversation(conv);
     const retrieved = getConversation('test-2');
     expect(retrieved.title).toBe('What is the best stock to buy?');
+  });
+
+  it('saveConversation auto-generates title from t/x format', () => {
+    const conv = { id: 'test-tx', messages: [{ t: 'u', x: 'Analyze AAPL please' }] };
+    saveConversation(conv);
+    const retrieved = getConversation('test-tx');
+    expect(retrieved.title).toBe('Analyze AAPL please');
   });
 
   it('saveConversation truncates title to 50 chars', () => {
@@ -78,7 +93,6 @@ describe('Conversation storage', () => {
 
     const list = listConversations();
     expect(list).toHaveLength(3);
-    // Most recent should be first (third was saved last)
     expect(list[0].id).toBe('third');
     expect(list[2].id).toBe('first');
   });
@@ -98,11 +112,7 @@ describe('Conversation storage', () => {
 });
 
 describe('Advisor selection storage', () => {
-  beforeEach(() => {
-    localStorageMock.clear();
-    localStorageMock.getItem.mockImplementation((key) => store[key] || null);
-    localStorageMock.setItem.mockImplementation((key, value) => { store[key] = value; });
-  });
+  beforeEach(resetStore);
 
   it('getSelectedAdvisors returns defaults when empty', () => {
     const selected = getSelectedAdvisors();
@@ -117,11 +127,7 @@ describe('Advisor selection storage', () => {
 });
 
 describe('Portfolio storage', () => {
-  beforeEach(() => {
-    localStorageMock.clear();
-    localStorageMock.getItem.mockImplementation((key) => store[key] || null);
-    localStorageMock.setItem.mockImplementation((key, value) => { store[key] = value; });
-  });
+  beforeEach(resetStore);
 
   it('getPortfolio returns empty structure when no data', () => {
     const portfolio = getPortfolio();
@@ -139,5 +145,77 @@ describe('Portfolio storage', () => {
     expect(retrieved.positions).toHaveLength(1);
     expect(retrieved.positions[0].ticker).toBe('AAPL');
     expect(retrieved.watchlist).toContain('MSFT');
+  });
+
+  it('updatePrices updates currentPrice and lastPriceUpdate', () => {
+    savePortfolio({
+      positions: [
+        { ticker: 'AAPL', shares: 10, avgCost: 150, currentPrice: null },
+        { ticker: 'MSFT', shares: 5, avgCost: 300, currentPrice: null },
+      ],
+    });
+    const updated = updatePrices({
+      AAPL: { price: 178.50, change: 2.3, changePercent: 1.3 },
+      MSFT: { price: 410.20, change: -1.5, changePercent: -0.36 },
+    });
+    expect(updated.positions[0].currentPrice).toBe(178.50);
+    expect(updated.positions[0].priceChange).toBe(2.3);
+    expect(updated.positions[0].lastPriceUpdate).toBeGreaterThan(0);
+    expect(updated.positions[1].currentPrice).toBe(410.20);
+  });
+
+  it('updatePrices skips tickers not in priceMap', () => {
+    savePortfolio({
+      positions: [
+        { ticker: 'AAPL', shares: 10, avgCost: 150, currentPrice: null },
+        { ticker: 'TSLA', shares: 2, avgCost: 200, currentPrice: null },
+      ],
+    });
+    const updated = updatePrices({ AAPL: { price: 180, change: 1, changePercent: 0.5 } });
+    expect(updated.positions[0].currentPrice).toBe(180);
+    expect(updated.positions[1].currentPrice).toBeNull();
+  });
+
+  it('addTransaction appends to position transactions', () => {
+    savePortfolio({
+      positions: [{ ticker: 'AAPL', shares: 10, avgCost: 150, transactions: [] }],
+    });
+    addTransaction('AAPL', 5, 160, 1711234567890);
+    const portfolio = getPortfolio();
+    expect(portfolio.positions[0].transactions).toHaveLength(1);
+    expect(portfolio.positions[0].transactions[0]).toEqual({ shares: 5, price: 160, date: 1711234567890 });
+  });
+});
+
+describe('Alert storage', () => {
+  beforeEach(resetStore);
+
+  it('getAlerts returns defaults for position without alerts', () => {
+    savePortfolio({ positions: [{ ticker: 'AAPL', shares: 10, avgCost: 150 }] });
+    const alerts = getAlerts('AAPL');
+    expect(alerts).toEqual({ stopLoss: null, takeProfit: null });
+  });
+
+  it('setAlert persists stop-loss and take-profit', () => {
+    savePortfolio({ positions: [{ ticker: 'AAPL', shares: 10, avgCost: 150 }] });
+    setAlert('AAPL', 'stopLoss', 10);
+    setAlert('AAPL', 'takeProfit', 25);
+    const alerts = getAlerts('AAPL');
+    expect(alerts.stopLoss).toBe(10);
+    expect(alerts.takeProfit).toBe(25);
+  });
+
+  it('setAlert can clear an alert by setting null', () => {
+    savePortfolio({ positions: [{ ticker: 'AAPL', shares: 10, avgCost: 150, alerts: { stopLoss: 10, takeProfit: 25 } }] });
+    setAlert('AAPL', 'stopLoss', null);
+    const alerts = getAlerts('AAPL');
+    expect(alerts.stopLoss).toBeNull();
+    expect(alerts.takeProfit).toBe(25);
+  });
+
+  it('dismissAlert records timestamp and getDismissedAlerts retrieves', () => {
+    dismissAlert('sl_AAPL');
+    const dismissed = getDismissedAlerts();
+    expect(dismissed.sl_AAPL).toBeGreaterThan(0);
   });
 });

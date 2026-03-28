@@ -1,9 +1,10 @@
 import { ADVISORS, ADVISOR_KEYS, SUGGESTED } from './advisors.js';
 import { getSelectedAdvisors, setSelectedAdvisors, getConversation, saveConversation, newConversation, getCurrentConversationId, setCurrentConversationId } from './storage.js';
-import { detectTicker, streamAdvisors, askAdvisors } from './api.js';
+import { detectTicker, streamAdvisors } from './api.js';
 import { renderMessages, renderWelcome, esc, formatText } from './ui.js';
 import { initSidebar, renderConversationList } from './sidebar.js';
-import { initPortfolio, renderPortfolio } from './portfolio.js';
+import { initPortfolio, onPortfolioView } from './portfolio.js';
+import { initAlerts } from './alerts.js';
 
 let currentConv = null;
 let busy = false;
@@ -33,6 +34,7 @@ function init() {
 
   initSidebar({ onNewChat: startNewChat, onLoadChat: loadChat });
   initPortfolio();
+  initAlerts();
   renderConversationList(loadChat);
 
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
@@ -44,7 +46,7 @@ function switchView(view) {
   $("nav-portfolio").classList.toggle("nav-active", view === "portfolio");
   $("council-view").style.display = view === "council" ? "flex" : "none";
   $("portfolio-view").style.display = view === "portfolio" ? "flex" : "none";
-  if (view === "portfolio") renderPortfolio();
+  if (view === "portfolio") onPortfolioView();
 }
 
 function loadOrNewConversation() {
