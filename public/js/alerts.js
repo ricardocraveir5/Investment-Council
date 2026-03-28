@@ -7,33 +7,48 @@ export function initAlerts() {
   toastContainer = document.getElementById("toast-container");
 }
 
-export function checkAlerts(positions) {
-  if (!toastContainer) return;
+function getTriggeredAlerts(positions) {
   const dismissed = getDismissedAlerts();
+  const triggered = [];
 
   for (const p of positions) {
     if (!p.currentPrice || !p.alerts) continue;
     const pnlPct = ((p.currentPrice - p.avgCost) / p.avgCost) * 100;
 
-    // Stop-loss alert
     if (p.alerts.stopLoss != null && pnlPct <= -Math.abs(p.alerts.stopLoss)) {
-      const key = `sl_${p.ticker}`;
-      if (!dismissed[key] || Date.now() - dismissed[key] > DISMISS_COOLDOWN) {
-        showToast(`${p.ticker} hit stop-loss (${pnlPct.toFixed(1)}%)`, "down", key);
-      }
+      const msg = `${p.ticker} hit stop-loss (${pnlPct.toFixed(1)}%)`;
+      triggered.push({ ticker: p.ticker, type: "down", msg, toastKey: `sl_${p.ticker}`, notifKey: `wn_sl_${p.ticker}` });
     }
 
-    // Take-profit alert
     if (p.alerts.takeProfit != null && pnlPct >= p.alerts.takeProfit) {
-      const key = `tp_${p.ticker}`;
-      if (!dismissed[key] || Date.now() - dismissed[key] > DISMISS_COOLDOWN) {
-        showToast(`${p.ticker} hit target (+${pnlPct.toFixed(1)}%)`, "up", key);
-      }
+      const msg = `${p.ticker} hit target (+${pnlPct.toFixed(1)}%)`;
+      triggered.push({ ticker: p.ticker, type: "up", msg, toastKey: `tp_${p.ticker}`, notifKey: `wn_tp_${p.ticker}` });
     }
   }
 
-  // Try Web Notification API if available and permitted
-  tryWebNotifications(positions, dismissed);
+  return triggered.filter(a => {
+    // At least one channel (toast or notification) should not be dismissed
+    const toastOk = !dismissed[a.toastKey] || Date.now() - dismissed[a.toastKey] > DISMISS_COOLDOWN;
+    const notifOk = !dismissed[a.notifKey] || Date.now() - dismissed[a.notifKey] > DISMISS_COOLDOWN;
+    return toastOk || notifOk;
+  });
+}
+
+export function checkAlerts(positions) {
+  const alerts = getTriggeredAlerts(positions);
+  const dismissed = getDismissedAlerts();
+
+  for (const a of alerts) {
+    if (toastContainer && (!dismissed[a.toastKey] || Date.now() - dismissed[a.toastKey] > DISMISS_COOLDOWN)) {
+      showToast(a.msg, a.type, a.toastKey);
+    }
+
+    if ("Notification" in window && Notification.permission === "granted" &&
+        (!dismissed[a.notifKey] || Date.now() - dismissed[a.notifKey] > DISMISS_COOLDOWN)) {
+      new Notification("Investment Council", { body: a.msg, icon: "/icon-192.png" });
+      dismissAlert(a.notifKey);
+    }
+  }
 }
 
 function showToast(message, type, alertKey) {
@@ -51,44 +66,12 @@ function showToast(message, type, alertKey) {
   });
   toastContainer.appendChild(toast);
 
-  // Auto-remove after 8 seconds
   setTimeout(() => {
     if (toast.parentNode) {
       toast.classList.add("toast-out");
       setTimeout(() => toast.remove(), 300);
     }
   }, 8000);
-}
-
-function tryWebNotifications(positions, dismissed) {
-  if (!("Notification" in window) || Notification.permission !== "granted") return;
-
-  for (const p of positions) {
-    if (!p.currentPrice || !p.alerts) continue;
-    const pnlPct = ((p.currentPrice - p.avgCost) / p.avgCost) * 100;
-
-    if (p.alerts.stopLoss != null && pnlPct <= -Math.abs(p.alerts.stopLoss)) {
-      const key = `wn_sl_${p.ticker}`;
-      if (!dismissed[key] || Date.now() - dismissed[key] > DISMISS_COOLDOWN) {
-        new Notification("Investment Council", {
-          body: `${p.ticker} hit stop-loss (${pnlPct.toFixed(1)}%)`,
-          icon: "/icon-192.png",
-        });
-        dismissAlert(key);
-      }
-    }
-
-    if (p.alerts.takeProfit != null && pnlPct >= p.alerts.takeProfit) {
-      const key = `wn_tp_${p.ticker}`;
-      if (!dismissed[key] || Date.now() - dismissed[key] > DISMISS_COOLDOWN) {
-        new Notification("Investment Council", {
-          body: `${p.ticker} hit target (+${pnlPct.toFixed(1)}%)`,
-          icon: "/icon-192.png",
-        });
-        dismissAlert(key);
-      }
-    }
-  }
 }
 
 export function requestNotificationPermission() {

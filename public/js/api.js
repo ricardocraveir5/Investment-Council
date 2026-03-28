@@ -8,12 +8,16 @@ export function detectTicker(text) {
   return m2 ? m2[1].toUpperCase() : "";
 }
 
+async function postJSON(url, data) {
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+  return r.json();
+}
+
 export async function askAdvisors({ question, advisors, ticker, conversationHistory }) {
   const ep = ticker ? "/api/research" : "/api/ask";
   const body = { question, advisors, conversationHistory };
   if (ticker) body.ticker = ticker;
-  const r = await fetch(ep, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  return r.json();
+  return postJSON(ep, body);
 }
 
 export function streamAdvisors({ question, advisors, ticker, conversationHistory, onStart, onDelta, onDone, onError, onFinancial, onComplete }) {
@@ -101,17 +105,14 @@ export function streamAdvisors({ question, advisors, ticker, conversationHistory
   return controller;
 }
 
-export async function fetchQuotes(tickers) {
-  const r = await fetch("/api/quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tickers }) });
-  return r.json();
+export function fetchQuotes(tickers) {
+  return postJSON("/api/quote", { tickers });
 }
 
-export async function fetchPrices(tickers) {
-  const r = await fetch("/api/prices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tickers }) });
-  return r.json();
+export function fetchPrices(tickers) {
+  return postJSON("/api/prices", { tickers });
 }
 
-export async function analyzePortfolio(positions, advisor) {
-  const r = await fetch("/api/analyze-portfolio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ positions, advisor }) });
-  return r.json();
+export function analyzePortfolio(positions, advisor) {
+  return postJSON("/api/analyze-portfolio", { positions, advisor });
 }

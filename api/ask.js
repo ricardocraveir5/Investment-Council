@@ -13,7 +13,6 @@ export default async function handler(req, res) {
   if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured" });
 
   const anthropic = createClient();
-  const q = question;
 
   const validAdvisors = advisors.filter(k => ADVISORS[k]);
 
@@ -24,7 +23,7 @@ export default async function handler(req, res) {
       for (const msg of history) {
         messages.push({ role: msg.role, content: msg.content });
       }
-      messages.push({ role: "user", content: q });
+      messages.push({ role: "user", content: question });
 
       const response = await anthropic.messages.create({
         model: "claude-sonnet-4-20250514",

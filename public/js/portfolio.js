@@ -1,28 +1,29 @@
-import { getPortfolio, savePortfolio, updatePrices, setAlert, addTransaction } from './storage.js';
+import { getPortfolio, savePortfolio, updatePrices, setAlert } from './storage.js';
 import { analyzePortfolio, fetchQuotes } from './api.js';
 import { ADVISORS, ADVISOR_KEYS } from './advisors.js';
-import { formatText, esc, timeAgo } from './ui.js';
+import { formatText, esc, timeAgo, fmtMoney, fmtPct, pnlPct as calcPnlPct } from './ui.js';
 import { checkAlerts, requestNotificationPermission } from './alerts.js';
 
 let analysisResult = null;
 let analyzing = false;
 let refreshTimer = null;
 let lastRefresh = 0;
-const REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes
+let isPortfolioActive = false;
+const REFRESH_INTERVAL = 15 * 60 * 1000;
 
 export function initPortfolio() {
   document.getElementById("add-position-btn").addEventListener("click", showAddForm);
   document.getElementById("add-form-cancel").addEventListener("click", hideAddForm);
   document.getElementById("add-form-save").addEventListener("click", savePosition);
+  document.getElementById("alert-modal-save").addEventListener("click", saveAlerts);
+  document.getElementById("alert-modal-cancel").addEventListener("click", hideAlertModal);
 
-  // Pause/resume refresh on visibility change
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       clearInterval(refreshTimer);
       refreshTimer = null;
-    } else if (getPortfolio().positions.length > 0) {
+    } else if (isPortfolioActive && getPortfolio().positions.length > 0) {
       startRefreshTimer();
-      // Refresh if stale (>5 min since last)
       if (Date.now() - lastRefresh > 5 * 60 * 1000) refreshPrices();
     }
   });
@@ -46,16 +47,23 @@ export async function refreshPrices() {
       checkAlerts(updated.positions);
       renderPortfolio();
     }
-  } catch { /* silent fail, will retry on next interval */ }
+  } catch { /* will retry on next interval */ }
 }
 
 export async function onPortfolioView() {
-  renderPortfolio();
+  isPortfolioActive = true;
   const portfolio = getPortfolio();
   if (portfolio.positions.length > 0) {
     startRefreshTimer();
+    renderPortfolio();
     await refreshPrices();
+  } else {
+    renderPortfolio();
   }
+}
+
+export function onPortfolioLeave() {
+  isPortfolioActive = false;
 }
 
 function showAddForm() {
@@ -99,9 +107,7 @@ function savePosition() {
   savePortfolio(portfolio);
   hideAddForm();
   renderPortfolio();
-  refreshPrices(); // Fetch live price for new position
-
-  // Request notification permission on first position add
+  refreshPrices();
   requestNotificationPermission();
 }
 
@@ -167,14 +173,6 @@ async function runAnalysis() {
   renderPortfolio();
 }
 
-function fmtMoney(v) {
-  return "$" + Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function fmtPct(v) {
-  return (v >= 0 ? "+" : "") + v.toFixed(2) + "%";
-}
-
 export function renderPortfolio() {
   const el = document.getElementById("portfolio-content");
   const portfolio = getPortfolio();
@@ -189,7 +187,6 @@ export function renderPortfolio() {
       <div style="font-size:12px;color:#666;margin-bottom:20px">Add your first position to start tracking</div>
     </div>`;
   } else {
-    // Summary with live values
     const totalCost = positions.reduce((s, p) => s + (p.shares * p.avgCost), 0);
     const totalValue = positions.reduce((s, p) => s + (p.shares * (p.currentPrice || p.avgCost)), 0);
     const totalPnl = totalValue - totalCost;
@@ -209,15 +206,13 @@ export function renderPortfolio() {
     h += `<button class="port-refresh-btn" id="refresh-prices-btn">\u{21BB} Refresh Prices</button>`;
     h += `</div>`;
 
-    // Position cards
     h += `<div class="port-positions">`;
     for (const p of positions) {
       const livePrice = p.currentPrice || null;
       const value = p.shares * (livePrice || p.avgCost);
-      const totalV = positions.reduce((s, q) => s + (q.shares * (q.currentPrice || q.avgCost)), 0);
-      const weight = (value / totalV * 100).toFixed(1);
+      const weight = (value / totalValue * 100).toFixed(1);
       const pnl = livePrice ? (livePrice - p.avgCost) * p.shares : null;
-      const pnlPct = livePrice ? ((livePrice - p.avgCost) / p.avgCost) * 100 : null;
+      const pnlPctVal = livePrice ? calcPnlPct(livePrice, p.avgCost) : null;
       const hasAlerts = p.alerts && (p.alerts.stopLoss != null || p.alerts.takeProfit != null);
 
       h += `<div class="port-card">
@@ -238,18 +233,16 @@ export function renderPortfolio() {
       h += `<button class="port-card-del" data-del-ticker="${esc(p.ticker)}">\u{2715}</button>`;
       h += `</div>`;
 
-      // Details row
       h += `<div class="port-card-details">
         <div><span class="port-label">Shares</span><span class="port-val">${p.shares}</span></div>
         <div><span class="port-label">Avg Cost</span><span class="port-val">$${p.avgCost.toFixed(2)}</span></div>
         <div><span class="port-label">Value</span><span class="port-val">${fmtMoney(value)}</span></div>`;
       if (pnl != null) {
         const cls = pnl >= 0 ? "pnl-up" : "pnl-down";
-        h += `<div><span class="port-label">P&L</span><span class="port-val ${cls}">${pnl >= 0 ? "+" : "-"}${fmtMoney(pnl)} (${fmtPct(pnlPct)})</span></div>`;
+        h += `<div><span class="port-label">P&L</span><span class="port-val ${cls}">${pnl >= 0 ? "+" : "-"}${fmtMoney(pnl)} (${fmtPct(pnlPctVal)})</span></div>`;
       }
       h += `</div>`;
 
-      // Alert thresholds display
       if (hasAlerts) {
         h += `<div class="port-alerts-row">`;
         if (p.alerts.stopLoss != null) h += `<span class="port-alert-tag alert-sl">\u{1F6D1} Stop: -${p.alerts.stopLoss}%</span>`;
@@ -257,12 +250,11 @@ export function renderPortfolio() {
         h += `</div>`;
       }
 
-      // Transaction history (collapsible)
       if (p.transactions && p.transactions.length > 0) {
         h += `<details class="port-tx-details">
           <summary class="port-tx-summary">${p.transactions.length} transaction${p.transactions.length > 1 ? "s" : ""}</summary>
           <div class="port-tx-list">`;
-        for (const tx of p.transactions.sort((a, b) => b.date - a.date)) {
+        for (const tx of [...p.transactions].sort((a, b) => b.date - a.date)) {
           const d = new Date(tx.date);
           h += `<div class="port-tx-item">
             <span class="port-tx-date">${d.toLocaleDateString()}</span>
@@ -277,7 +269,6 @@ export function renderPortfolio() {
     }
     h += `</div>`;
 
-    // Analysis section
     h += `<div class="port-analysis-section">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <select id="analysis-advisor" class="port-advisor-select">
@@ -304,27 +295,15 @@ export function renderPortfolio() {
 
   el.innerHTML = h;
 
-  // Bind event listeners
   const analyzeBtn = document.getElementById("analyze-btn");
   if (analyzeBtn) analyzeBtn.addEventListener("click", runAnalysis);
   const refreshBtn = document.getElementById("refresh-prices-btn");
   if (refreshBtn) refreshBtn.addEventListener("click", refreshPrices);
 
-  // Alert buttons
   el.querySelectorAll(".port-alert-btn").forEach(btn => {
     btn.addEventListener("click", () => showAlertModal(btn.dataset.alertTicker));
   });
-
-  // Delete buttons
   el.querySelectorAll(".port-card-del").forEach(btn => {
     btn.addEventListener("click", () => deletePosition(btn.dataset.delTicker));
   });
-
-  // Alert modal bindings (rebind each render)
-  const alertSave = document.getElementById("alert-modal-save");
-  const alertCancel = document.getElementById("alert-modal-cancel");
-  if (alertSave) alertSave.addEventListener("click", saveAlerts);
-  if (alertCancel) alertCancel.addEventListener("click", hideAlertModal);
 }
-
-// No more window.__deletePosition - using event delegation instead

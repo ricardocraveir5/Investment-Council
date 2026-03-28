@@ -3,7 +3,7 @@ import { getSelectedAdvisors, setSelectedAdvisors, getConversation, saveConversa
 import { detectTicker, streamAdvisors } from './api.js';
 import { renderMessages, renderWelcome, esc, formatText } from './ui.js';
 import { initSidebar, renderConversationList } from './sidebar.js';
-import { initPortfolio, onPortfolioView } from './portfolio.js';
+import { initPortfolio, onPortfolioView, onPortfolioLeave } from './portfolio.js';
 import { initAlerts } from './alerts.js';
 
 let currentConv = null;
@@ -47,6 +47,7 @@ function switchView(view) {
   $("council-view").style.display = view === "council" ? "flex" : "none";
   $("portfolio-view").style.display = view === "portfolio" ? "flex" : "none";
   if (view === "portfolio") onPortfolioView();
+  else onPortfolioLeave();
 }
 
 function loadOrNewConversation() {
