@@ -1,13 +1,14 @@
 import { ADVISORS, ADVISOR_KEYS, SUGGESTED } from './advisors.js';
 import { getSelectedAdvisors, setSelectedAdvisors, getConversation, saveConversation, newConversation, getCurrentConversationId, setCurrentConversationId } from './storage.js';
-import { detectTicker, askAdvisors } from './api.js';
-import { renderMessages, renderWelcome, esc } from './ui.js';
+import { detectTicker, streamAdvisors, askAdvisors } from './api.js';
+import { renderMessages, renderWelcome, esc, formatText } from './ui.js';
 import { initSidebar, renderConversationList } from './sidebar.js';
 import { initPortfolio, renderPortfolio } from './portfolio.js';
 
 let currentConv = null;
 let busy = false;
 let currentView = "council";
+let activeStream = null;
 
 const $ = id => document.getElementById(id);
 
@@ -56,12 +57,14 @@ function loadOrNewConversation() {
 }
 
 function startNewChat() {
+  if (activeStream) { activeStream.abort(); activeStream = null; }
   currentConv = newConversation();
   $("cb").style.display = "none";
   renderView();
 }
 
 function loadChat(id) {
+  if (activeStream) { activeStream.abort(); activeStream = null; }
   const conv = getConversation(id);
   if (!conv) return;
   currentConv = conv;
@@ -71,6 +74,7 @@ function loadChat(id) {
 }
 
 function clearChat() {
+  if (activeStream) { activeStream.abort(); activeStream = null; }
   currentConv = newConversation();
   $("cb").style.display = "none";
   renderView();
@@ -161,7 +165,35 @@ function updateSendButton() {
   b.style.color = v && !busy ? "#FFF" : "#555";
 }
 
-// --- Send message ---
+// --- Update a single advisor card's text incrementally ---
+function updateCardText(advisorKey, text) {
+  const el = document.querySelector(`[data-stream-advisor="${advisorKey}"] .ct`);
+  if (el) el.innerHTML = formatText(text);
+}
+
+function markCardDone(advisorKey) {
+  const card = document.querySelector(`[data-stream-advisor="${advisorKey}"]`);
+  if (!card) return;
+  // Remove loading dots if still present
+  const dots = card.querySelector(".dots");
+  if (dots) dots.remove();
+}
+
+function markCardError(advisorKey, errorText) {
+  const card = document.querySelector(`[data-stream-advisor="${advisorKey}"]`);
+  if (!card) return;
+  const dots = card.querySelector(".dots");
+  if (dots) dots.remove();
+  const ct = card.querySelector(".ct");
+  if (ct) {
+    ct.classList.add("err");
+    ct.innerHTML = formatText(errorText);
+  }
+  const cn = card.querySelector(".cn");
+  if (cn) cn.style.color = "#C87070";
+}
+
+// --- Send message with streaming ---
 async function go(prefill) {
   const inp = $("inp");
   const txt = prefill || inp.value.trim();
@@ -175,14 +207,15 @@ async function go(prefill) {
   const tk = detectTicker(txt);
   currentConv.messages.push({ t: "u", x: txt, tgts: selected });
 
-  const loadingEntry = { t: "r", d: {} };
-  selected.forEach(k => { loadingEntry.d[k] = { l: true, x: "", e: false }; });
-  if (tk) loadingEntry.tk = tk;
-  currentConv.messages.push(loadingEntry);
+  // Create response entry with loading state
+  const responseEntry = { t: "r", d: {} };
+  selected.forEach(k => { responseEntry.d[k] = { l: true, x: "", e: false }; });
+  if (tk) responseEntry.tk = tk;
+  currentConv.messages.push(responseEntry);
   renderView();
   $("cb").style.display = "block";
 
-  // Build conversation history per advisor (last 10 exchanges)
+  // Build conversation history per advisor
   const convHistory = {};
   for (const k of selected) {
     const history = [];
@@ -197,30 +230,143 @@ async function go(prefill) {
     convHistory[k] = history.slice(-20);
   }
 
-  try {
-    const data = await askAdvisors({ question: txt, advisors: selected, ticker: tk, conversationHistory: convHistory });
-    if (data.error) {
-      selected.forEach(k => { loadingEntry.d[k] = { l: false, x: data.error, e: true }; });
-    } else {
-      for (const k of selected) {
-        const v = data.results[k];
-        loadingEntry.d[k] = v ? { l: false, x: v.text, e: !v.ok } : { l: false, x: "No response", e: true };
+  // Accumulated text per advisor for streaming
+  const accumulated = {};
+  selected.forEach(k => { accumulated[k] = ""; });
+
+  // Render the initial streaming cards (with loading dots and empty text area)
+  renderStreamingCards(responseEntry, selected);
+
+  activeStream = streamAdvisors({
+    question: txt,
+    advisors: selected,
+    ticker: tk,
+    conversationHistory: convHistory,
+
+    onStart({ advisor, name, icon }) {
+      // Replace loading dots with empty text container
+      responseEntry.d[advisor] = { l: false, x: "", e: false };
+      const card = document.querySelector(`[data-stream-advisor="${advisor}"]`);
+      if (card) {
+        const dots = card.querySelector(".dots");
+        if (dots) dots.remove();
+        // Ensure text container exists
+        let ct = card.querySelector(".ct");
+        if (!ct) {
+          ct = document.createElement("div");
+          ct.className = "ct";
+          card.appendChild(ct);
+        }
       }
-      if (data.financialContext) loadingEntry.fc = data.financialContext;
+    },
+
+    onDelta({ advisor, text }) {
+      accumulated[advisor] += text;
+      responseEntry.d[advisor].x = accumulated[advisor];
+      updateCardText(advisor, accumulated[advisor]);
+      // Auto-scroll
+      const msgs = $("msgs");
+      msgs.scrollTop = msgs.scrollHeight;
+    },
+
+    onDone({ advisor }) {
+      responseEntry.d[advisor].l = false;
+      markCardDone(advisor);
+    },
+
+    onError({ advisor, text }) {
+      if (advisor) {
+        responseEntry.d[advisor] = { l: false, x: text || "Error", e: true };
+        markCardError(advisor, text || "Error");
+      } else {
+        // Global error - mark all loading advisors as failed
+        selected.forEach(k => {
+          if (responseEntry.d[k].l) {
+            responseEntry.d[k] = { l: false, x: text || "Connection error", e: true };
+          }
+        });
+        renderView();
+      }
+    },
+
+    onFinancial({ context }) {
+      responseEntry.fc = context;
+      if (tk) {
+        const fb = document.querySelector(".fb-stream");
+        if (fb) {
+          fb.textContent = `\u{1F52C} Financial data pulled for ${tk}`;
+          fb.style.display = "block";
+        }
+      }
+    },
+
+    onComplete() {
+      activeStream = null;
+      currentConv.advisorIcons = selected.map(k => ADVISORS[k].i).join("");
+      saveConversation(currentConv);
+      setCurrentConversationId(currentConv.id);
+      renderConversationList(loadChat);
+      busy = false;
+      updateSendButton();
+      inp.focus();
+    },
+  });
+}
+
+function renderStreamingCards(entry, selected) {
+  const el = $("msgs");
+  // Re-render all messages up to the last response, then render streaming cards
+  let h = "";
+  for (const e of currentConv.messages.slice(0, -1)) {
+    if (e.t === "u") {
+      h += `<div class="mu"><div style="max-width:82%">`;
+      if (e.tgts && e.tgts.length > 1) h += `<div class="mt">${e.tgts.map(t => {
+        const a = ADVISORS[t];
+        return a ? `<span class="tg" style="background:${a.c}20;color:${a.c}">${a.i} ${a.s}</span>` : "";
+      }).join("")}</div>`;
+      h += `<div class="mb">${esc(e.x)}</div></div></div>`;
     }
-  } catch (e) {
-    selected.forEach(k => { loadingEntry.d[k] = { l: false, x: "Connection error: " + e.message, e: true }; });
+    if (e.t === "r") {
+      h += `<div style="margin-bottom:18px;max-width:92%">`;
+      if (e.fc) h += `<div class="fb">\u{1F52C} Financial data pulled${e.tk ? " for " + e.tk : ""}</div>`;
+      for (const [k, v] of Object.entries(e.d)) {
+        const a = ADVISORS[k];
+        if (!a) continue;
+        h += `<div class="cd" style="border-color:${v.e ? "#7A3A3A" : a.c + "30"}"><div class="ch"><div class="ci" style="background:${a.g}">${a.i}</div><span class="cn" style="color:${v.e ? "#C87070" : a.c}">${a.n}</span>${v.e ? '<span class="ce">ERROR</span>' : ""}</div>`;
+        if (v.l) h += `<div class="dots"><div class="dot" style="background:${a.c}"></div><div class="dot" style="background:${a.c};animation-delay:.2s"></div><div class="dot" style="background:${a.c};animation-delay:.4s"></div></div>`;
+        else h += `<div class="ct${v.e ? " err" : ""}">${formatText(v.x)}</div>`;
+        h += `</div>`;
+      }
+      h += `</div>`;
+    }
   }
 
-  currentConv.advisorIcons = selected.map(k => ADVISORS[k].i).join("");
-  saveConversation(currentConv);
-  setCurrentConversationId(currentConv.id);
-  renderConversationList(loadChat);
+  // Current user message
+  const userMsg = currentConv.messages[currentConv.messages.length - 2];
+  if (userMsg && userMsg.t === "u") {
+    h += `<div class="mu"><div style="max-width:82%">`;
+    if (userMsg.tgts && userMsg.tgts.length > 1) h += `<div class="mt">${userMsg.tgts.map(t => {
+      const a = ADVISORS[t];
+      return a ? `<span class="tg" style="background:${a.c}20;color:${a.c}">${a.i} ${a.s}</span>` : "";
+    }).join("")}</div>`;
+    h += `<div class="mb">${esc(userMsg.x)}</div></div></div>`;
+  }
 
-  busy = false;
-  updateSendButton();
-  renderView();
-  inp.focus();
+  // Streaming response cards
+  h += `<div style="margin-bottom:18px;max-width:92%">`;
+  h += `<div class="fb fb-stream" style="display:none">\u{1F52C} Loading financial data...</div>`;
+  for (const k of selected) {
+    const a = ADVISORS[k];
+    h += `<div class="cd" data-stream-advisor="${k}" style="border-color:${a.c}30">`;
+    h += `<div class="ch"><div class="ci" style="background:${a.g}">${a.i}</div><span class="cn" style="color:${a.c}">${a.n}</span></div>`;
+    h += `<div class="dots"><div class="dot" style="background:${a.c}"></div><div class="dot" style="background:${a.c};animation-delay:.2s"></div><div class="dot" style="background:${a.c};animation-delay:.4s"></div></div>`;
+    h += `<div class="ct"></div>`;
+    h += `</div>`;
+  }
+  h += `</div>`;
+
+  el.innerHTML = h;
+  setTimeout(() => { el.scrollTop = el.scrollHeight; }, 50);
 }
 
 init();

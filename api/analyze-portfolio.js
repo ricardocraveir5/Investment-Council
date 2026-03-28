@@ -1,7 +1,7 @@
-const Anthropic = require("@anthropic-ai/sdk");
-const { ADVISORS } = require("./lib/advisors");
+import { createClient } from "./lib/anthropic.js";
+import { ADVISORS } from "./lib/advisors.js";
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -23,7 +23,7 @@ module.exports = async function handler(req, res) {
   }
   portfolioSummary += `\nPlease analyze this portfolio for: concentration risk, sector diversification, correlation concerns, and provide specific rebalancing suggestions.`;
 
-  const anthropic = new Anthropic.default({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const anthropic = createClient();
 
   try {
     const response = await anthropic.messages.create({
@@ -37,4 +37,4 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     res.status(500).json({ ok: false, text: `Error: ${err.message}` });
   }
-};
+}

@@ -1,7 +1,7 @@
-const Anthropic = require("@anthropic-ai/sdk");
-const { ADVISORS } = require("./lib/advisors");
+import { createClient } from "./lib/anthropic.js";
+import { ADVISORS } from "./lib/advisors.js";
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -12,7 +12,7 @@ module.exports = async function handler(req, res) {
   if (!question) return res.status(400).json({ error: "No question" });
   if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured" });
 
-  const anthropic = new Anthropic.default({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const anthropic = createClient();
   const q = financialContext ? `${financialContext}\n\n---\nBased on the data above:\n${question}` : question;
 
   const validAdvisors = advisors.filter(k => ADVISORS[k]);
@@ -48,4 +48,4 @@ module.exports = async function handler(req, res) {
   }
 
   res.status(200).json({ results });
-};
+}

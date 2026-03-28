@@ -1,4 +1,4 @@
-const CACHE = "council-v2";
+const CACHE = "council-v3";
 const ASSETS = [
   "/",
   "/manifest.json",

@@ -53,6 +53,10 @@ async function analyzeCompany(ticker, apiKey) {
   return s;
 }
 
+function sse(res, event, data) {
+  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -62,20 +66,30 @@ export default async function handler(req, res) {
 
   const { question, ticker, advisors = ["analyst", "buffett", "munger"], conversationHistory = {} } = req.body || {};
   if (!question) return res.status(400).json({ error: "No question" });
+  if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured" });
 
+  // Fetch financial data if ticker provided (non-streaming)
   let ctx = "";
   if (ticker && process.env.FINANCIAL_DATASETS_API_KEY) {
     try { ctx = await analyzeCompany(ticker, process.env.FINANCIAL_DATASETS_API_KEY); }
     catch (e) { ctx = `(Could not retrieve data for ${ticker}: ${e.message})`; }
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured" });
+  // Set SSE headers
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.statusCode = 200;
+
+  // Send financial context if available
+  if (ctx) sse(res, "financial", { context: ctx });
+
   const anthropic = createClient();
   const q = ctx ? `${ctx}\n\n---\nBased on this data:\n${question}` : question;
-
   const validAdvisors = advisors.filter(k => ADVISORS[k]);
 
-  const promises = validAdvisors.map(async (key) => {
+  // Stream all advisors in parallel
+  await Promise.all(validAdvisors.map(async (key) => {
     try {
       const messages = [];
       const history = (conversationHistory[key] || []).slice(-20);
@@ -84,26 +98,27 @@ export default async function handler(req, res) {
       }
       messages.push({ role: "user", content: q });
 
-      const response = await anthropic.messages.create({
+      sse(res, "start", { advisor: key, name: ADVISORS[key].name, icon: ADVISORS[key].icon });
+
+      const stream = anthropic.messages.stream({
         model: "claude-sonnet-4-20250514",
         max_tokens: 1200,
         system: ADVISORS[key].system,
         messages,
       });
-      const text = response.content.filter(b => b.type === "text").map(b => b.text).join("\n");
-      return { key, result: { ok: true, text, name: ADVISORS[key].name, icon: ADVISORS[key].icon } };
+
+      for await (const event of stream) {
+        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+          sse(res, "delta", { advisor: key, text: event.delta.text });
+        }
+      }
+
+      sse(res, "done", { advisor: key });
     } catch (err) {
-      return { key, result: { ok: false, text: `Error: ${err.message}`, name: ADVISORS[key].name, icon: ADVISORS[key].icon } };
+      sse(res, "error", { advisor: key, text: err.message });
     }
-  });
+  }));
 
-  const settled = await Promise.allSettled(promises);
-  const results = {};
-  for (const s of settled) {
-    if (s.status === "fulfilled") {
-      results[s.value.key] = s.value.result;
-    }
-  }
-
-  res.status(200).json({ results, financialContext: ctx || null });
+  sse(res, "complete", {});
+  res.end();
 }
