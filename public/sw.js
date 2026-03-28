@@ -1,5 +1,16 @@
-const CACHE = "council-v1";
-const ASSETS = ["/", "/manifest.json"];
+const CACHE = "council-v2";
+const ASSETS = [
+  "/",
+  "/manifest.json",
+  "/css/styles.css",
+  "/js/app.js",
+  "/js/advisors.js",
+  "/js/api.js",
+  "/js/ui.js",
+  "/js/storage.js",
+  "/js/sidebar.js",
+  "/js/portfolio.js",
+];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
