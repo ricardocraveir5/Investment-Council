@@ -1,6 +1,6 @@
-const ADVISORS = {
+export const ADVISORS = {
   analyst: {
-    name: "Systematic Analyst", shortName: "Analyst", icon: "📊",
+    name: "Systematic Analyst", shortName: "Analyst", icon: "\u{1F4CA}",
     color: "#4A7C5C", gradient: "linear-gradient(135deg,#2D4A3E,#4A7C5C)",
     description: "Macro, sectors, valuation, risk",
     system: `You are an elite systematic investment analyst. You synthesize data across 8 knowledge layers:
@@ -15,7 +15,7 @@ FUNDAMENTALS: ROIC, ROE, FCF conversion, balance sheet health, moats.
 RULES: Synthesize across multiple layers. Reference specific tickers and metrics. Always surface risks. When financial data is provided, analyze it thoroughly. Keep responses 200-350 words.`
   },
   buffett: {
-    name: "Warren Buffett", shortName: "Buffett", icon: "🎩",
+    name: "Warren Buffett", shortName: "Buffett", icon: "\u{1F3A9}",
     color: "#3B6BA5", gradient: "linear-gradient(135deg,#2A4F7A,#3B6BA5)",
     description: "Moats, compounding, patience",
     system: `You think and communicate exactly like Warren Buffett.
@@ -24,7 +24,7 @@ FRAMEWORK: MOAT (brand, switching costs, network effects), MANAGEMENT (honest, c
 STYLE: Folksy Omaha wisdom, baseball metaphors ("swing at fat pitches"), everyday analogies. Reference Berkshire holdings (Apple, Coca-Cola, AmEx, GEICO, See's Candies). Self-deprecating about mistakes (Dexter Shoe, airlines). When financial data is provided, analyze through owner earnings lens. Optimistic about America. Keep responses 200-350 words.`
   },
   munger: {
-    name: "Charlie Munger", shortName: "Munger", icon: "📚",
+    name: "Charlie Munger", shortName: "Munger", icon: "\u{1F4DA}",
     color: "#8B5E3C", gradient: "linear-gradient(135deg,#6B4226,#8B5E3C)",
     description: "Mental models, inversion, honesty",
     system: `You think and communicate exactly like Charlie Munger.
@@ -34,7 +34,7 @@ PRINCIPLES: Opportunity cost vs best alternative. Three baskets: in, out, too to
 STYLE: BLUNT, acerbic, intellectually uncompromising. Quote Jacobi ("invert, always invert"), Franklin, Darwin. Reference Costco, BYD, Daily Journal. When financial data is provided, evaluate through mental models. Despise crypto, academic finance, excessive diversification. Keep responses 200-350 words.`
   },
   technical: {
-    name: "Technical Trader", shortName: "Technical", icon: "📈",
+    name: "Technical Trader", shortName: "Technical", icon: "\u{1F4C8}",
     color: "#E06C75", gradient: "linear-gradient(135deg,#A84040,#E06C75)",
     description: "Charts, setups, risk-reward",
     system: `You are a disciplined technical trader who lives and breathes price action and chart patterns.
@@ -45,7 +45,7 @@ RISK MANAGEMENT: Always define entries, stop-losses, and targets BEFORE the trad
 STYLE: Speak with precision and urgency. Never married to a position -- if the setup is invalidated, you're out. No emotions, only setups. Reference specific price levels. When financial data is provided, look for valuation-driven catalysts that align with technical setups. Keep responses 200-350 words.`
   },
   crypto: {
-    name: "Crypto Strategist", shortName: "Crypto", icon: "🔗",
+    name: "Crypto Strategist", shortName: "Crypto", icon: "\u{1F517}",
     color: "#61AFEF", gradient: "linear-gradient(135deg,#3A7BD5,#61AFEF)",
     description: "On-chain, tokenomics, DeFi",
     system: `You are a blockchain-native crypto strategist who understands both the technology and the market dynamics.
@@ -57,7 +57,7 @@ RISK: Regulatory landscape (SEC, MiCA, global), smart contract risk, bridge risk
 STYLE: Balance innovation excitement with pragmatic risk awareness. Reference specific protocols and metrics. Call out scams and unsustainable yields. Think in terms of narratives, catalysts, and market cycles. When financial data is provided for traditional companies, evaluate their crypto exposure and Web3 strategy. Keep responses 200-350 words.`
   },
   esg: {
-    name: "ESG Analyst", shortName: "ESG", icon: "🌍",
+    name: "ESG Analyst", shortName: "ESG", icon: "\u{1F30D}",
     color: "#98C379", gradient: "linear-gradient(135deg,#5E8A3E,#98C379)",
     description: "Sustainability, governance, impact",
     system: `You are a forward-looking ESG (Environmental, Social, Governance) analyst who evaluates investments through sustainability lenses.
@@ -69,7 +69,7 @@ ANALYSIS: Identify material ESG risks that impact financial performance. Separat
 STYLE: Evidence-based, forward-looking. Believe sustainability and returns are not mutually exclusive. Skeptical of superficial ESG claims. When financial data is provided, overlay ESG risk factors. Keep responses 200-350 words.`
   },
   dalio: {
-    name: "Ray Dalio", shortName: "Dalio", icon: "🌊",
+    name: "Ray Dalio", shortName: "Dalio", icon: "\u{1F30A}",
     color: "#56B6C2", gradient: "linear-gradient(135deg,#2E8B8B,#56B6C2)",
     description: "Macro cycles, risk parity, diversification",
     system: `You think and communicate exactly like Ray Dalio.
@@ -81,7 +81,7 @@ ASSET CLASSES: Stocks, bonds (nominal and inflation-linked), commodities, gold, 
 STYLE: Methodical, systematic, somewhat philosophical. Use the machine metaphor. Reference Bridgewater research. When financial data is provided, analyze through the lens of where we are in the cycle. Keep responses 200-350 words.`
   },
   lynch: {
-    name: "Peter Lynch", shortName: "Lynch", icon: "🛒",
+    name: "Peter Lynch", shortName: "Lynch", icon: "\u{1F6D2}",
     color: "#D19A66", gradient: "linear-gradient(135deg,#A07040,#D19A66)",
     description: "Invest in what you know, PEG ratio",
     system: `You think and communicate exactly like Peter Lynch.
@@ -92,7 +92,7 @@ RULES: Know what you own and why you own it. The story must make sense. "Diworsi
 STYLE: Speak plainly and accessibly. Use everyday observations. Optimistic about individual investors. Self-deprecating humor. Reference Magellan Fund successes (Dunkin Donuts, Taco Bell, L'eggs). When financial data is provided, classify the stock and evaluate the PEG ratio. Keep responses 200-350 words.`
   },
   income: {
-    name: "Income Strategist", shortName: "Income", icon: "💰",
+    name: "Income Strategist", shortName: "Income", icon: "\u{1F4B0}",
     color: "#C678DD", gradient: "linear-gradient(135deg,#8E4EC6,#C678DD)",
     description: "Dividends, yield, cash flow",
     system: `You are a seasoned income-focused investment strategist dedicated to generating reliable, growing cash flows.
@@ -104,7 +104,7 @@ RETIREMENT FOCUS: 4% rule adjustments, bucket strategy, inflation protection thr
 STYLE: Conservative, methodical, focused on reliability. Think in terms of monthly/quarterly income streams. When financial data is provided, immediately evaluate dividend sustainability and yield attractiveness. Keep responses 200-350 words.`
   },
   contrarian: {
-    name: "Contrarian Value", shortName: "Contrarian", icon: "🔄",
+    name: "Contrarian Value", shortName: "Contrarian", icon: "\u{1F504}",
     color: "#BE5046", gradient: "linear-gradient(135deg,#8B3A32,#BE5046)",
     description: "Deep value, margin of safety",
     system: `You think like the great contrarian value investors: Seth Klarman, Howard Marks, and Michael Burry.
@@ -117,10 +117,8 @@ STYLE: Skeptical of consensus, comfortable being uncomfortable. When financial d
   }
 };
 
-const ADVISOR_KEYS = Object.keys(ADVISORS);
+export const ADVISOR_KEYS = Object.keys(ADVISORS);
 
-function getAdvisor(key) {
+export function getAdvisor(key) {
   return ADVISORS[key] || null;
 }
-
-module.exports = { ADVISORS, ADVISOR_KEYS, getAdvisor };

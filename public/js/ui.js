@@ -53,6 +53,18 @@ export function renderMessages(messages, el) {
   setTimeout(() => { el.scrollTop = el.scrollHeight; }, 50);
 }
 
+export function fmtMoney(v) {
+  return "$" + Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+export function fmtPct(v) {
+  return (v >= 0 ? "+" : "") + v.toFixed(2) + "%";
+}
+
+export function pnlPct(currentPrice, avgCost) {
+  return ((currentPrice - avgCost) / avgCost) * 100;
+}
+
 export function renderWelcome(advisorKeys, suggested, onQuery) {
   const legends = advisorKeys.filter(k => ADVISORS[k].cat === "legends");
   const specialists = advisorKeys.filter(k => ADVISORS[k].cat === "specialists");
