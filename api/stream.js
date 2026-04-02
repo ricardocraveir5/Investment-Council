@@ -58,10 +58,7 @@ function sse(res, event, data) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
   const { question, ticker, advisors = ["analyst", "buffett", "munger"], conversationHistory = {} } = req.body || {};
@@ -115,7 +112,7 @@ export default async function handler(req, res) {
 
       sse(res, "done", { advisor: key });
     } catch (err) {
-      sse(res, "error", { advisor: key, text: err.message });
+      sse(res, "error", { advisor: key, text: "Unable to generate response" });
     }
   }));
 

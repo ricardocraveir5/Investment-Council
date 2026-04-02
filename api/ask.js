@@ -2,10 +2,7 @@ import { createClient } from "./lib/anthropic.js";
 import { ADVISORS } from "./lib/advisors.js";
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
   const { question, advisors = ["analyst", "buffett", "munger"], conversationHistory = {} } = req.body || {};
@@ -34,7 +31,7 @@ export default async function handler(req, res) {
       const text = response.content.filter(b => b.type === "text").map(b => b.text).join("\n");
       return { key, result: { ok: true, text, name: ADVISORS[key].name, icon: ADVISORS[key].icon } };
     } catch (err) {
-      return { key, result: { ok: false, text: `Error: ${err.message}`, name: ADVISORS[key].name, icon: ADVISORS[key].icon } };
+      return { key, result: { ok: false, text: "Unable to generate response", name: ADVISORS[key].name, icon: ADVISORS[key].icon } };
     }
   });
 
