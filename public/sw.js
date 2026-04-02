@@ -1,4 +1,4 @@
-const CACHE = "council-v4";
+const CACHE = "council-v5";
 const ASSETS = [
   "/",
   "/manifest.json",
@@ -11,6 +11,8 @@ const ASSETS = [
   "/js/sidebar.js",
   "/js/portfolio.js",
   "/js/alerts.js",
+  "/icon-192.png",
+  "/icon-512.png",
 ];
 
 self.addEventListener("install", e => {

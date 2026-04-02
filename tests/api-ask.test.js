@@ -34,10 +34,10 @@ describe('POST /api/ask', () => {
     mockCreate.mockResolvedValue({ content: [{ type: 'text', text: 'Mock response' }] });
   });
 
-  it('returns 200 for OPTIONS', async () => {
+  it('returns 204 for OPTIONS', async () => {
     const res = createRes();
     await handler(createReq('OPTIONS'), res);
-    expect(res.statusCode).toBe(200);
+    expect(res.statusCode).toBe(204);
   });
 
   it('returns 405 for GET', async () => {
